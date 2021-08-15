@@ -1,0 +1,468 @@
+
+Create a Managed k8 Cluster on Azure
+====================================
+Ref :
+https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough
+
+
+https://portal.azure.com/#home
+
+Cloud shell
+
+https://docs.microsoft.com/en-us/cli/azure/
+
+Step 1
+======
+
+Login to portal using cli
+
+[root@control-plane ~]# az login
+The default web browser has been opened at https://login.microsoftonline.com/common/oauth2/authorize. Please continue the login in the web browser. If no web browser is available or if the web browser fails to open, use device code flow with `az login --use-device-code`.
+This tool has been deprecated, use 'gio open' instead.
+See 'gio help open' for more info.
+
+You have logged in. Now let us find all the subscriptions to which you have access...
+[
+  {
+    "cloudName": "AzureCloud",
+    "homeTenantId": "5d757289-8e4e-4ac6-9ae7-87590963a438",
+    "id": "6ffdc718-ef72-4323-bb14-34c548c923f6",
+    "isDefault": false,
+    "managedByTenants": [],
+    "name": "Azure subscription 1",
+    "state": "Warned",
+    "tenantId": "5d757289-8e4e-4ac6-9ae7-87590963a438",
+    "user": {
+      "name": "tnhdevops@gmail.com",
+      "type": "user"
+    }
+  },
+  {
+    "cloudName": "AzureCloud",
+    "homeTenantId": "5d757289-8e4e-4ac6-9ae7-87590963a438",
+    "id": "77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "tnhdevopssub1",
+    "state": "Enabled",
+    "tenantId": "5d757289-8e4e-4ac6-9ae7-87590963a438",
+    "user": {
+      "name": "tnhdevops@gmail.com",
+      "type": "user"
+    }
+  }
+]
+
+Step 2
+======
+
+Create a resource group
+
+An Azure resource group is a logical group in which Azure resources are deployed and managed , like storage , configuration meta data.
+
+The following example creates a resource group named tnhrsgp in the eastus location.
+
+
+
+[root@control-plane ~]# az group create --name tnhrsgp --location eastus
+{
+  "id": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourceGroups/tnhrsgp",
+  "location": "eastus",
+  "managedBy": null,
+  "name": "tnhrsgp",
+  "properties": {
+    "provisioningState": "Succeeded"
+  },
+  "tags": null,
+  "type": "Microsoft.Resources/resourceGroups"
+}
+
+
+[root@control-plane ~]# az group list
+[
+  {
+    "id": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourceGroups/tnhrsgp",
+    "location": "eastus",
+    "managedBy": null,
+    "name": "tnhrsgp",
+    "properties": {
+      "provisioningState": "Succeeded"
+    },
+    "tags": null,
+    "type": "Microsoft.Resources/resourceGroups"
+  }
+]
+
+Step 3
+======
+
+Enable cluster monitoring
+-------------------------
+
+Verify Microsoft.OperationsManagement and Microsoft.OperationalInsights are registered status for your subscription. 
+
+
+[root@control-plane ~]# az provider show -n Microsoft.OperationsManagement -o table
+Namespace                       RegistrationPolicy    RegistrationState
+------------------------------  --------------------  -------------------
+Microsoft.OperationsManagement  RegistrationRequired  NotRegistered
+
+
+[root@control-plane ~]# az provider show -n Microsoft.OperationalInsights -o table
+Namespace                      RegistrationPolicy    RegistrationState
+-----------------------------  --------------------  -------------------
+Microsoft.OperationalInsights  RegistrationRequired  NotRegistered
+
+
+If they are not registered, register Microsoft.OperationsManagement and Microsoft.OperationalInsights using:
+
+[root@control-plane ~]# az provider register --namespace Microsoft.OperationsManagement
+Registering is still on-going. You can monitor using 'az provider show -n Microsoft.OperationsManagement'
+
+[root@control-plane ~]# az provider register --namespace Microsoft.OperationalInsights
+Registering is still on-going. You can monitor using 'az provider show -n Microsoft.OperationalInsights'
+
+[root@control-plane ~]# az provider show -n Microsoft.OperationsManagement -o table
+Namespace                       RegistrationPolicy    RegistrationState
+------------------------------  --------------------  -------------------
+Microsoft.OperationsManagement  RegistrationRequired  Registering
+
+
+[root@control-plane ~]# az provider show -n Microsoft.OperationalInsights -o table
+Namespace                      RegistrationPolicy    RegistrationState
+-----------------------------  --------------------  -------------------
+Microsoft.OperationalInsights  RegistrationRequired  Registering
+
+[root@control-plane ~]# az provider show -n Microsoft.OperationalInsights -o table
+Namespace                      RegistrationPolicy    RegistrationState
+-----------------------------  --------------------  -------------------
+Microsoft.OperationalInsights  RegistrationRequired  Registering
+[root@control-plane ~]# az provider show -n Microsoft.OperationalInsights -o table
+Namespace                      RegistrationPolicy    RegistrationState
+-----------------------------  --------------------  -------------------
+Microsoft.OperationalInsights  RegistrationRequired  Registering
+[root@control-plane ~]# az provider show -n Microsoft.OperationsManagement -o table
+Namespace                       RegistrationPolicy    RegistrationState
+------------------------------  --------------------  -------------------
+Microsoft.OperationsManagement  RegistrationRequired  Registered
+[root@control-plane ~]# az provider show -n Microsoft.OperationalInsights -o table
+Namespace                      RegistrationPolicy    RegistrationState
+-----------------------------  --------------------  -------------------
+Microsoft.OperationalInsights  RegistrationRequired  Registered
+
+Step 4
+======
+
+Create AKS cluster
+
+Create an AKS cluster using the az aks create command. The following example creates a cluster named tnhakscluster with two nodes:
+
+[root@control-plane ~]# az aks create --resource-group tnhrsgp --name tnhakscluster --node-count 2 --enable-addons monitoring --generate-ssh-keys
+Resource provider 'Microsoft.ContainerService' used by this operation is not registered. We are registering for you.
+Registration succeeded.
+AAD role propagation done[############################################]  100.0000%{
+  "aadProfile": null,
+  "addonProfiles": {
+    "omsagent": {
+      "config": {
+        "logAnalyticsWorkspaceResourceID": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourcegroups/defaultresourcegroup-eus/providers/microsoft.operationalinsights/workspaces/defaultworkspace-77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6-eus"
+      },
+      "enabled": true,
+      "identity": {
+        "clientId": "0a1b6995-c3d9-485b-9c47-b494df5338e4",
+        "objectId": "474fa73b-4d12-42f9-9eac-46a42066ba10",
+        "resourceId": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourcegroups/MC_tnhrsgp_tnhakscluster_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/omsagent-tnhakscluster"
+      }
+    }
+  },
+  "agentPoolProfiles": [
+    {
+      "availabilityZones": null,
+      "count": 2,
+      "enableAutoScaling": null,
+      "enableEncryptionAtHost": false,
+      "enableFips": false,
+      "enableNodePublicIp": false,
+      "enableUltraSsd": false,
+      "gpuInstanceProfile": null,
+      "kubeletConfig": null,
+      "kubeletDiskType": "OS",
+      "linuxOsConfig": null,
+      "maxCount": null,
+      "maxPods": 110,
+      "minCount": null,
+      "mode": "System",
+      "name": "nodepool1",
+      "nodeImageVersion": "AKSUbuntu-1804gen2containerd-2021.07.03",
+      "nodeLabels": {},
+      "nodePublicIpPrefixId": null,
+      "nodeTaints": null,
+      "orchestratorVersion": "1.19.11",
+      "osDiskSizeGb": 128,
+      "osDiskType": "Managed",
+      "osSku": "Ubuntu",
+      "osType": "Linux",
+      "podSubnetId": null,
+      "powerState": {
+        "code": "Running"
+      },
+      "provisioningState": "Succeeded",
+      "proximityPlacementGroupId": null,
+      "scaleSetEvictionPolicy": null,
+      "scaleSetPriority": null,
+      "spotMaxPrice": null,
+      "tags": null,
+      "type": "VirtualMachineScaleSets",
+      "upgradeSettings": null,
+      "vmSize": "Standard_DS2_v2",
+      "vnetSubnetId": null
+    }
+  ],
+  "apiServerAccessProfile": null,
+  "autoScalerProfile": null,
+  "autoUpgradeProfile": null,
+  "azurePortalFqdn": "myaksclust-tnhrsgp-77a12c-62533f0b.portal.hcp.eastus.azmk8s.io",
+  "disableLocalAccounts": null,
+  "diskEncryptionSetId": null,
+  "dnsPrefix": "myAKSClust-tnhrsgp-77a12c",
+  "enablePodSecurityPolicy": null,
+  "enableRbac": true,
+  "extendedLocation": null,
+  "fqdn": "myaksclust-tnhrsgp-77a12c-62533f0b.hcp.eastus.azmk8s.io",
+  "fqdnSubdomain": null,
+  "httpProxyConfig": null,
+  "id": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourcegroups/tnhrsgp/providers/Microsoft.ContainerService/managedClusters/tnhakscluster",
+  "identity": {
+    "principalId": "81c61b88-f2d4-46ce-bb83-e4d778974c23",
+    "tenantId": "5d757289-8e4e-4ac6-9ae7-87590963a438",
+    "type": "SystemAssigned",
+    "userAssignedIdentities": null
+  },
+  "identityProfile": {
+    "kubeletidentity": {
+      "clientId": "90be427c-ff06-4ff7-90eb-3f02332896fd",
+      "objectId": "b3aab540-0632-4fd6-8011-34926901d991",
+      "resourceId": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourcegroups/MC_tnhrsgp_tnhakscluster_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/tnhakscluster-agentpool"
+    }
+  },
+  "kubernetesVersion": "1.19.11",
+  "linuxProfile": {
+    "adminUsername": "azureuser",
+    "ssh": {
+      "publicKeys": [
+        {
+          "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDmY9P8u70MD6ZE/KwhKTS0nKNdG5GAwo+x59+I6x6qsI2aoJaCUZlHY6LkyRpMBaowcRIDlTlPSIQ7tVf6z3ROSHs1b9R454UjtgZasL6SbE3EE2eFQwWnoWthn80eO0rtLD49xW14jP9qywXwHUXZj+SAj7YECT62PYT9g1SeKOTemHZZxdrLjLXjMPCd3pwyzSa9RceTW1qNaxFgH8TR8xLSVwoFCaSQSxndD4nyaBPfOeUZ1t3rvcIq3x7z9f0R/jeFKZaeClEPTi7qKFKdf3LYCf9lYXxQgh0cxXfU+EB6LzntFYs0NqVilttSXcHUoJ5MFIGoUSxWhhZYdKuT"
+        }
+      ]
+    }
+  },
+  "location": "eastus",
+  "maxAgentPools": 100,
+  "name": "tnhakscluster",
+  "networkProfile": {
+    "dnsServiceIp": "10.0.0.10",
+    "dockerBridgeCidr": "172.17.0.1/16",
+    "loadBalancerProfile": {
+      "allocatedOutboundPorts": null,
+      "effectiveOutboundIPs": [
+        {
+          "id": "/subscriptions/77a12c16-2acc-4dd9-b9b2-1faa8d4c43b6/resourceGroups/MC_tnhrsgp_tnhakscluster_eastus/providers/Microsoft.Network/publicIPAddresses/6db5b053-ed36-4977-afeb-4ee81cfe363f",
+          "resourceGroup": "MC_tnhrsgp_tnhakscluster_eastus"
+        }
+      ],
+      "idleTimeoutInMinutes": null,
+      "managedOutboundIPs": {
+        "count": 1
+      },
+      "outboundIPs": null,
+      "outboundIpPrefixes": null
+    },
+    "loadBalancerSku": "Standard",
+    "networkMode": null,
+    "networkPlugin": "kubenet",
+    "networkPolicy": null,
+    "outboundType": "loadBalancer",
+    "podCidr": "10.244.0.0/16",
+    "serviceCidr": "10.0.0.0/16"
+  },
+  "nodeResourceGroup": "MC_tnhrsgp_tnhakscluster_eastus",
+  "podIdentityProfile": null,
+  "powerState": {
+    "code": "Running"
+  },
+  "privateFqdn": null,
+  "privateLinkResources": null,
+  "provisioningState": "Succeeded",
+  "resourceGroup": "tnhrsgp",
+  "servicePrincipalProfile": {
+    "clientId": "msi",
+    "secret": null
+  },
+  "sku": {
+    "name": "Basic",
+    "tier": "Free"
+  },
+  "tags": null,
+  "type": "Microsoft.ContainerService/ManagedClusters",
+  "windowsProfile": null
+}
+
+Step 5
+======
+
+Connect to the cluster
+
+To manage a Kubernetes cluster, use the Kubernetes command-line client, kubectl. 
+Install kubectl locally using the az aks install-cli command:
+
+
+Configure kubectl to connect to your Kubernetes cluster using the az aks get-credentials command. 
+The following command:
+    Downloads credentials and configures the Kubernetes CLI to use them.
+    Uses ~/.kube/config, the default location for the Kubernetes configuration file. 
+    Specify a different location for your Kubernetes configuration file using --file.
+
+
+
+[root@control-plane ~]# az aks get-credentials --resource-group tnhrsgp --name tnhakscluster
+Merged "tnhakscluster" as current context in /root/.kube/config
+
+get the merged kubeconfig settings and contexts
+-----------------------------------------------
+
+[root@control-plane ~]# kubectl config view
+
+[root@control-plane ~]# kubectl config get-contexts 
+CURRENT   NAME            CLUSTER         AUTHINFO                                   NAMESPACE
+          myAKSCluster    myAKSCluster    clusterUser_myResourceGroup_myAKSCluster   
+*         tnhakscluster   tnhakscluster   clusterUser_tnhrsgp_tnhakscluster          
+
+
+[root@control-plane ~]# kubectl config current-context
+tnhakscluster
+
+
+
+[root@control-plane ~]# kubectl get no
+NAME                                STATUS   ROLES   AGE   VERSION
+aks-nodepool1-37729917-vmss000000   Ready    agent   17m   v1.20.7
+aks-nodepool1-37729917-vmss000001   Ready    agent   17m   v1.20.7
+
+[root@control-plane ~]# kubectl get no -o wide 
+
+[root@control-plane ~]# kubectl describe nodes aks-nodepool1-37729917-vmss000000
+
+
+let's deploy a sample application
+
+Step 6
+======
+
+[root@control-plane ~]# vi basic-dep.yml
+[root@control-plane ~]# ls
+agent.jar        Desktop        initial-setup-ks.cfg        Music      Videos
+anaconda-ks.cfg  docker-images  lib                         Pictures
+basic-dep.yml    Documents      minikube-latest.x86_64.rpm  Public
+bin              Downloads      minikube-linux-amd64        Templates
+
+[root@control-plane ~]# kubectl apply -f basic-dep.yml 
+deployment.apps/azure-vote-back created
+service/azure-vote-back created
+deployment.apps/azure-vote-front created
+service/azure-vote-front created
+
+kubectl get service azure-vote-front --watch
+
+[root@control-plane ~]# kubectl get svc
+NAME               TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)        AGE
+azure-vote-back    ClusterIP      10.0.76.223   <none>          6379/TCP       14s
+azure-vote-front   LoadBalancer   10.0.215.12   52.224.142.36   80:30346/TCP   13s
+kubernetes         ClusterIP      10.0.0.1      <none>          443/TCP        5m35s
+
+The EXTERNAL-IP output for the azure-vote-front service will initially show as pending.
+
+
+[root@control-plane ~]# kubectl get po
+NAME                                READY   STATUS              RESTARTS   AGE
+azure-vote-back-5f46f8f4cc-s8tlt    1/1     Running             0          26s
+azure-vote-front-5d68fcf586-7p9xb   0/1     ContainerCreating   0          25s
+
+kubectl get pod azure-vote-back-5f46f8f4cc-r44v8 -o yaml
+
+
+
+root@control-plane ~]# kubectl get pods --all-namespaces
+NAMESPACE     NAME                                  READY   STATUS    RESTARTS   AGE
+default       azure-vote-back-5f46f8f4cc-r44v8      1/1     Running   0          2m25s
+default       azure-vote-front-5d68fcf586-7mbt5     1/1     Running   0          2m24s
+kube-system   azure-ip-masq-agent-txpqs             1/1     Running   0          13m
+kube-system   azure-ip-masq-agent-w4zrn             1/1     Running   0          13m
+kube-system   coredns-9d6c6c99b-b5k9h               1/1     Running   0          14m
+kube-system   coredns-9d6c6c99b-ctxrc               1/1     Running   0          13m
+kube-system   coredns-autoscaler-599949fd86-8f4jm   1/1     Running   0          14m
+kube-system   kube-proxy-knsvc                      1/1     Running   0          13m
+kube-system   kube-proxy-z26v6                      1/1     Running   0          13m
+kube-system   metrics-server-77c8679d7d-r955m       1/1     Running   0          14m
+kube-system   omsagent-4qzpq                        1/1     Running   0          13m
+kube-system   omsagent-dbm8j                        1/1     Running   0          13m
+kube-system   omsagent-rs-68cb875679-btkdg          1/1     Running   0          14m
+kube-system   tunnelfront-7565f6557-z2m4r           1/1     Running   0          14m
+
+
+[root@control-plane ~]# kubectl get deploy
+NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+azure-vote-back    1/1     1            1           54s
+azure-vote-front   1/1     1            1           53s
+
+
+[root@control-plane ~]# kubectl describe  deploy azure-vote-back
+Name:                   azure-vote-back
+Namespace:              default
+CreationTimestamp:      Tue, 20 Jul 2021 18:31:05 +0530
+Labels:                 <none>
+Annotations:            deployment.kubernetes.io/revision: 1
+Selector:               app=azure-vote-back
+Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=azure-vote-back
+  Containers:
+   azure-vote-back:
+    Image:      mcr.microsoft.com/oss/bitnami/redis:6.0.8
+    Port:       6379/TCP
+    Host Port:  0/TCP
+    Limits:
+      cpu:     250m
+      memory:  256Mi
+    Requests:
+      cpu:     100m
+      memory:  128Mi
+    Environment:
+      ALLOW_EMPTY_PASSWORD:  yes
+    Mounts:                  <none>
+  Volumes:                   <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  <none>
+NewReplicaSet:   azure-vote-back-5f46f8f4cc (1/1 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  81s   deployment-controller  Scaled up replica set azure-vote-back-5f46f8f4cc to 1
+  
+  
+Step 7
+======
+
+To see the Azure Vote app in action, open a web browser to the external IP address of your service.
+
+
+  [root@control-plane ~]# 
+[root@control-plane ~]# az group delete --name tnhrsgp --yes --no-wait
+
+  
